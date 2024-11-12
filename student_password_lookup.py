@@ -3,17 +3,6 @@ import pg8000
 import pandas as pd
 import streamlit as st
 
-# Set a simple password
-PASSWORD = os.environ["APP_PASSWORD"]
-
-# Create a password input field in Streamlit
-password = st.text_input("Enter Password", type="password")
-if password != PASSWORD:
-    st.warning("Incorrect password")
-    st.stop()
-else:
-    st.success("Access granted!")
-
 # Function to establish a database connection
 def get_database_connection():
     db_connection = pg8000.connect(
@@ -25,13 +14,13 @@ def get_database_connection():
     )
     return db_connection
 
-# Function to fetch data from the 'student_list' table in Supabase
+# Function to fetch data from the 'exam_results' table in Supabase
 def fetch_data_from_supabase():
     # Connect to the database
     db_connection = get_database_connection()
     db_cursor = db_connection.cursor()
 
-    # SQL query to select all active students
+    # SQL query to select all data from the 'exam_results' table
     db_query = "SELECT iatc_id, name, class, password FROM student_list WHERE status = 'ACTIVE';"
     db_cursor.execute(db_query)
 
@@ -47,18 +36,23 @@ def fetch_data_from_supabase():
     return data
 
 # Streamlit interface for displaying data
-st.title("View and Filter Student Data")
+st.title("View and Filter Data")
 
 # Fetch data from Supabase
 data = fetch_data_from_supabase()
 
-# Sidebar filters for Student ID
-st.sidebar.header("Filter by IATC ID")
-iatc_id_options = data['IATC ID'].unique()
-selected_iatc_ids = st.sidebar.multiselect("Select IATC ID(s):", iatc_id_options, default=iatc_id_options)
+# Set default selection to the first student's IATC ID on initial load
+first_student_id = data['IATC ID'].iloc[0] if not data.empty else None
+
+# Sidebar filters
+st.sidebar.header("Select Student ID")
+
+# Filter by 'IATC ID'
+exam_options = data['IATC ID'].unique()
+selected_exam = st.sidebar.multiselect("Select Student(s):", exam_options, default=[first_student_id])
 
 # Apply filters to the data
-filtered_data = data[data['IATC ID'].isin(selected_iatc_ids)]
+filtered_data = data[data['IATC ID'].isin(selected_exam)]
 
 # Display the filtered data in a table format
 st.write("Filtered Student Data:")
