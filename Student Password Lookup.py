@@ -3,6 +3,17 @@ import pg8000
 import pandas as pd
 import streamlit as st
 
+# Set a simple password
+PASSWORD = os.environ["APP_PASSWORD"]
+
+# Create a password input field in Streamlit
+password = st.text_input("Enter Password", type="password")
+if password != PASSWORD:
+    st.warning("Incorrect password")
+    st.stop()
+else:
+    st.success("Access granted!")
+
 # Function to establish a database connection
 def get_database_connection():
     db_connection = pg8000.connect(
