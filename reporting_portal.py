@@ -95,21 +95,20 @@ default_exam = exam_data['Exam'].iloc[0] if not exam_data.empty else None
 # Sidebar filters
 st.sidebar.header("Filters")
 
-# Dynamically create filters for each column
-filtered_data = exam_data.copy()
-for column in exam_data.columns:
-    options = exam_data[column].dropna().unique()
-    if column == 'IATC ID':
-        selected_option = st.sidebar.multiselect(f"Filter by {column}:", options, default=[default_iatc_id])
-    elif column == 'Exam':
-        selected_option = st.sidebar.multiselect(f"Filter by {column}:", options, default=[default_exam])
-    else:
-        selected_option = st.sidebar.multiselect(f"Filter by {column}:", options, default=options)
+# Filter by IATC ID
+iatc_id_options = exam_data['IATC ID'].unique()
+selected_iatc_id = st.sidebar.multiselect("Filter by IATC ID:", iatc_id_options, default=[default_iatc_id])
 
-    # Apply the filter
-    if selected_option:
-        filtered_data = filtered_data[filtered_data[column].isin(selected_option)]
+# Filter by Exam
+exam_options = exam_data['Exam'].unique()
+selected_exam = st.sidebar.multiselect("Filter by Exam:", exam_options, default=[default_exam])
+
+# Apply default filters to the data
+filtered_data = exam_data[
+    (exam_data['IATC ID'].isin(selected_iatc_id)) & 
+    (exam_data['Exam'].isin(selected_exam))
+]
 
 # Display filtered data
-st.write("Filtered Exam Results:")
+st.write(f"Filtered Exam Results for Selected IATC IDs and Exams")
 st.dataframe(filtered_data)  # Interactive table
