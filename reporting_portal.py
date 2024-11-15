@@ -25,14 +25,14 @@ def get_database_connection():
     )
     return db_connection
 
-# Function to fetch exam results from the Supabase database
-def fetch_exam_results():
+# Function to fetch filtered data from Supabase
+def fetch_filtered_data(selected_filters):
     # Connect to the database
     db_connection = get_database_connection()
     db_cursor = db_connection.cursor()
 
-    # SQL query to fetch active exam results
-    db_query = """
+    # Build the SQL query dynamically
+    query = """
     SELECT
         student_list.iatc_id,
         exam_results.nat_id,
@@ -47,15 +47,33 @@ def fetch_exam_results():
         exam_results.type,
         exam_results.attempt_index,
         exam_results.score_index
-
     FROM
         exam_results
-    
     INNER JOIN
         student_list ON exam_results.nat_id = student_list.nat_id
-    ;
+    WHERE 1=1
     """
-    db_cursor.execute(db_query)
+
+    # Add filters to the query
+    if selected_filters["iatc_ids"]:
+        query += f" AND student_list.iatc_id IN ({','.join(['%s'] * len(selected_filters['iatc_ids']))})"
+    if selected_filters["exams"]:
+        query += f" AND exam_results.exam IN ({','.join(['%s'] * len(selected_filters['exams']))})"
+    if selected_filters["classes"]:
+        query += f" AND student_list.class IN ({','.join(['%s'] * len(selected_filters['classes']))})"
+    if selected_filters["curriculums"]:
+        query += f" AND student_list.curriculum IN ({','.join(['%s'] * len(selected_filters['curriculums']))})"
+
+    # Prepare parameters for the query
+    params = (
+        selected_filters["iatc_ids"] +
+        selected_filters["exams"] +
+        selected_filters["classes"] +
+        selected_filters["curriculums"]
+    )
+
+    # Execute the query with the parameters
+    db_cursor.execute(query, params)
 
     # Fetch data and convert it to a DataFrame
     rows = db_cursor.fetchall()
@@ -83,33 +101,53 @@ def fetch_exam_results():
     return data
 
 # Streamlit interface
-st.title("View and Filter Exam Results")
-
-# Fetch exam results from Supabase
-exam_data = fetch_exam_results()
+st.title("Filter and View Exam Results")
 
 # Sidebar filters
 st.sidebar.header("Filters")
 
-# Filter by IATC ID
-iatc_id_options = exam_data['IATC ID'].unique()
-selected_iatc_id = st.sidebar.multiselect("Filter by IATC ID:", iatc_id_options)
+# User-selected filters
+selected_filters = {
+    "iatc_ids": st.sidebar.multiselect("Filter by IATC ID:", []),
+    "exams": st.sidebar.multiselect("Filter by Exam:", []),
+    "classes": st.sidebar.multiselect("Filter by Class:", []),
+    "curriculums": st.sidebar.multiselect("Filter by Curriculum:", [])
+}
 
-# Filter by Exam
-exam_options = exam_data['Exam'].unique()
-selected_exam = st.sidebar.multiselect("Filter by Exam:", exam_options)
+# Load filter options dynamically
+if st.sidebar.button("Load Filter Options"):
+    db_connection = get_database_connection()
+    db_cursor = db_connection.cursor()
 
-# Load Data Button
-if st.sidebar.button("Load Data"):
-    if not selected_iatc_id or not selected_exam:
-        st.error("Please select at least one IATC ID and one Exam.")
+    # Query to get unique filter options
+    db_cursor.execute("SELECT DISTINCT iatc_id FROM student_list")
+    selected_filters["iatc_ids"] = [row[0] for row in db_cursor.fetchall()]
+
+    db_cursor.execute("SELECT DISTINCT exam FROM exam_results")
+    selected_filters["exams"] = [row[0] for row in db_cursor.fetchall()]
+
+    db_cursor.execute("SELECT DISTINCT class FROM student_list")
+    selected_filters["classes"] = [row[0] for row in db_cursor.fetchall()]
+
+    db_cursor.execute("SELECT DISTINCT curriculum FROM student_list")
+    selected_filters["curriculums"] = [row[0] for row in db_cursor.fetchall()]
+
+    db_cursor.close()
+    db_connection.close()
+
+    st.sidebar.success("Filter options loaded! Please select filters.")
+
+# Load data after filters are applied
+if st.sidebar.button("Apply Filters"):
+    if not any(selected_filters.values()):
+        st.error("Please select at least one filter to view results.")
     else:
-        # Apply filters to the data
-        filtered_data = exam_data[
-            (exam_data['IATC ID'].isin(selected_iatc_id)) & 
-            (exam_data['Exam'].isin(selected_exam))
-        ]
+        # Fetch filtered data
+        filtered_data = fetch_filtered_data(selected_filters)
 
         # Display filtered data
-        st.write(f"Filtered Exam Results for Selected IATC IDs and Exams")
-        st.dataframe(filtered_data)  # Interactive table
+        if not filtered_data.empty:
+            st.write("Filtered Exam Results:")
+            st.dataframe(filtered_data)
+        else:
+            st.warning("No data found for the selected filters.")
