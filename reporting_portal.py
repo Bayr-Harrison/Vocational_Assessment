@@ -88,27 +88,28 @@ st.title("View and Filter Exam Results")
 # Fetch exam results from Supabase
 exam_data = fetch_exam_results()
 
-# Default filtering
-default_iatc_id = exam_data['IATC ID'].iloc[0] if not exam_data.empty else None
-default_exam = exam_data['Exam'].iloc[0] if not exam_data.empty else None
-
 # Sidebar filters
 st.sidebar.header("Filters")
 
 # Filter by IATC ID
 iatc_id_options = exam_data['IATC ID'].unique()
-selected_iatc_id = st.sidebar.multiselect("Filter by IATC ID:", iatc_id_options, default=[default_iatc_id])
+selected_iatc_id = st.sidebar.multiselect("Filter by IATC ID:", iatc_id_options)
 
 # Filter by Exam
 exam_options = exam_data['Exam'].unique()
-selected_exam = st.sidebar.multiselect("Filter by Exam:", exam_options, default=[default_exam])
+selected_exam = st.sidebar.multiselect("Filter by Exam:", exam_options)
 
-# Apply default filters to the data
-filtered_data = exam_data[
-    (exam_data['IATC ID'].isin(selected_iatc_id)) & 
-    (exam_data['Exam'].isin(selected_exam))
-]
+# Load Data Button
+if st.sidebar.button("Load Data"):
+    if not selected_iatc_id or not selected_exam:
+        st.error("Please select at least one IATC ID and one Exam.")
+    else:
+        # Apply filters to the data
+        filtered_data = exam_data[
+            (exam_data['IATC ID'].isin(selected_iatc_id)) & 
+            (exam_data['Exam'].isin(selected_exam))
+        ]
 
-# Display filtered data
-st.write(f"Filtered Exam Results for Selected IATC IDs and Exams")
-st.dataframe(filtered_data)  # Interactive table
+        # Display filtered data
+        st.write(f"Filtered Exam Results for Selected IATC IDs and Exams")
+        st.dataframe(filtered_data)  # Interactive table
